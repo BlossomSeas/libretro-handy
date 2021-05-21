@@ -594,6 +594,8 @@ ifneq (,$(findstring msvc,$(platform)))
 	LD = link.exe
 else
 	LD = $(CXX)
+	CFLAGS += -MMD -MP
+	CXXFLAGS += -MMD -MP
 endif
 
 %.o: %.cpp
@@ -632,3 +634,5 @@ uninstall:
 
 .PHONY: clean clean-objs all install uninstall
 endif
+
+-include $(OBJECTS:%.o=%.d)
