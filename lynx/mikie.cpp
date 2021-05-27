@@ -3733,6 +3733,10 @@ inline void CMikie::UpdateSound(void)
       }
    }
 
+   extern int retro_master_volume;
+   cur_lsample = cur_lsample * retro_master_volume / 100;
+   cur_rsample = cur_rsample * retro_master_volume / 100;
+
    static int last_lsample = 0;
    static int last_rsample = 0;
 
