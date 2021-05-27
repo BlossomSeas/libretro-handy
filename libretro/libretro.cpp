@@ -223,9 +223,13 @@ static void lynx_rotate(void)
    update_geometry();
 }
 
+#include "retro_getvars.c"
+
 static void check_variables(void)
 {
    struct retro_variable var = {0};
+
+   #include "retro_getvars_front.h"
 
    var.key = "handy_rot";
    var.value = NULL;
@@ -263,6 +267,8 @@ static void check_variables(void)
          }
    }
 #endif
+
+   #include "retro_getvars_back.h"
 }
 
 void retro_init(void)

@@ -49,6 +49,9 @@ extern "C" {
  *   frontend language definition */
 
 struct retro_core_option_definition option_defs_us[] = {
+
+   #include "retro_setenv_front.h"
+
    {
       "handy_rot",
       "Display Rotation",
@@ -61,6 +64,9 @@ struct retro_core_option_definition option_defs_us[] = {
       },
       "None"
    },
+
+   #include "retro_dummy_option.h"
+
 #if defined(FRONTEND_SUPPORTS_XRGB8888)
    {
       "handy_gfx_colors",
@@ -74,6 +80,9 @@ struct retro_core_option_definition option_defs_us[] = {
       "16bit"
    },
 #endif   
+
+   #include "retro_setenv_back.h"
+
    { NULL, NULL, NULL, {{0}}, NULL },
 };
 
