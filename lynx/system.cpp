@@ -225,7 +225,7 @@ CSystem::CSystem(const char* gamefile, const char* romfile, bool useEmu)
             // veryvery strange Howard Check CANNOT work, as there are two different loader-less card types...
             // unclear HOW this should do anything useful...
             FILE *fp;
-            char drive[3],dir[256],cartgo[256];
+            static char drive[3], dir[256], cartgo[256];
             mFileType=HANDY_FILETYPE_HOMEBREW;
             split_path(romfile,drive,dir,NULL,NULL);
             strcpy(cartgo,drive);
@@ -290,7 +290,7 @@ CSystem::CSystem(const char* gamefile, const char* romfile, bool useEmu)
    mEEPROM->SetEEPROMType(mCart->mEEPROMType);
 
    {
-      char eepromfile[1024];
+      static char eepromfile[1024];
       strncpy(eepromfile, gamefile,1024-10);
       strcat(eepromfile,".eeprom");
       mEEPROM->SetFilename(eepromfile);
@@ -361,8 +361,8 @@ void CSystem::HLE_BIOS_FE4A(void)
    UWORD addr=mRam->Peek(0x0005) | (mRam->Peek(0x0006)<<8);
 
    // Load from Cart (loader blocks)
-   unsigned char buff[256];// maximum 5 blocks
-   unsigned char res[256];
+   static unsigned char buff[256];// maximum 5 blocks
+   static unsigned char res[256];
 
    buff[0]=mCart->Peek0();
    int blockcount = 0x100 -  buff[0];
@@ -533,7 +533,7 @@ bool CSystem::ContextLoad(LSS_FILE *fp)
 
    fp->index=0;
 
-   char teststr[100];
+   static char teststr[100];
    // Check identifier
    if(!lss_read(teststr,sizeof(char),4,fp)) status=0;
    teststr[4]=0;
