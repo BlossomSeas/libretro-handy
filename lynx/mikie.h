@@ -183,7 +183,7 @@ enum
 
 #include <blip/Stereo_Buffer.h>
 
-typedef Blip_Synth<blip_good_quality, 256 * 4> Synth;
+typedef Blip_Synth<blip_max_quality, 256 * 4> Synth;
 
 class CMikie : public CLynxBase
 {

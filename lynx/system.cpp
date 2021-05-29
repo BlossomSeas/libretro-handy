@@ -147,7 +147,6 @@ CSystem::CSystem(const char* gamefile, const char* romfile, bool useEmu)
    mSusie(NULL),
    mEEPROM(NULL)
 {
-
 #ifdef _LYNXDBG
    mpDebugCallback=NULL;
    mDebugCallbackObject=0;
@@ -211,7 +210,6 @@ CSystem::CSystem(const char* gamefile, const char* romfile, bool useEmu)
    // Create the system objects that we'll use
 
    // Attempt to load the cartridge errors caught above here...
-
    mRom = new CRom(romfile,useEmu);
 
    // An exception from this will be caught by the level above

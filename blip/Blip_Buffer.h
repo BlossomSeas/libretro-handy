@@ -8,11 +8,21 @@
 #endif
 
 #include <limits.h>
-#include <stdint.h>
+#include <inttypes.h>
+#include <memory.h>
+#include <stdlib.h>
+
 
 // Blip_Buffer 0.4.1
 #ifndef BLIP_BUFFER_H
 #define BLIP_BUFFER_H
+
+
+#define BLIP_BUFFER_ACCURACY 32		// sync timing (12-32, 39)
+#define BLIP_PHASE_BITS 14			// curve quality (6-14, 19)
+#define BLIP_IMPULSES 24			// low-pass, per 2, higher more latency (8-256) (8 = too low) (24 = very close sync)
+
+
 
 // Internal
 typedef int32_t blip_long;
@@ -131,9 +141,6 @@ private:
 	#include "config.h"
 #endif
 
-#define BLIP_BUFFER_ACCURACY 32
-#define BLIP_PHASE_BITS 8
-
 // Number of bits in resample ratio fraction. Higher values give a more accurate ratio
 // but reduce maximum buffer size.
 //#ifndef BLIP_BUFFER_ACCURACY
@@ -153,11 +160,13 @@ private:
 
 	// Internal
 	typedef blip_u64 blip_resampled_time_t;
-	int const blip_widest_impulse_ = 16;
-	int const blip_buffer_extra_ = blip_widest_impulse_ + 2;
+	int const blip_widest_impulse_ = BLIP_IMPULSES;
+	int const blip_buffer_extra_ = blip_widest_impulse_ + 1;
 	int const blip_res = 1 << BLIP_PHASE_BITS;
 	class blip_eq_t;
-	
+
+#if BLIP_BUFFER_FAST
+
 	class Blip_Synth_Fast_ {
 	public:
 		Blip_Buffer* buf;
@@ -168,7 +177,9 @@ private:
 		Blip_Synth_Fast_();
 		void treble_eq( blip_eq_t const& ) { }
 	};
-	
+
+#else
+
 	class Blip_Synth_ {
 	public:
 		Blip_Buffer* buf;
@@ -178,19 +189,24 @@ private:
 		void volume_unit( double );
 		Blip_Synth_( short* impulses, int width );
 		void treble_eq( blip_eq_t const& );
+		void set_impulses( short* impulses_ ) { impulses = impulses_; }
+		void set_width( int width_ ) { width = width_; }
 	private:
 		double volume_unit_;
-		short* const impulses;
-		int const width;
+		short* impulses;
+		int width;
 		blip_long kernel_unit;
 		int impulses_size() const { return blip_res / 2 * width + 1; }
 		void adjust_impulse();
 	};
 
+#endif
+
 // Quality level. Start with blip_good_quality.
 const int blip_med_quality  = 8;
 const int blip_good_quality = 12;
 const int blip_high_quality = 16;
+const int blip_max_quality = BLIP_IMPULSES;
 
 // Range specifies the greatest expected change in amplitude. Calculate it
 // by finding the difference between the maximum and minimum expected
@@ -232,7 +248,23 @@ public:
 	}
 	
 private:
+#if BLIP_BUFFER_FAST
 	Blip_Synth_Fast_ impl;
+#else
+	typedef short imp_t;
+	Blip_Synth_ impl;
+	imp_t *impulses;
+public:
+	Blip_Synth() : impl(impulses, quality) {
+		// Avoid Thread-Local Storage (TLS) problems
+		impulses = (imp_t*) malloc( (blip_res / 2 * quality + 1) * sizeof(imp_t) );
+		impl.set_impulses(impulses);
+	}
+
+	~Blip_Synth() {
+		if (impulses) free(impulses);
+	}
+#endif
 };
 
 // Low-pass equalization parameters
@@ -256,7 +288,11 @@ private:
 
 int const blip_sample_bits = 30;
 
-#define BLIP_RESTRICT
+#if defined (__GNUC__) || _MSC_VER >= 1100
+	#define BLIP_RESTRICT __restrict
+#else
+	#define BLIP_RESTRICT
+#endif
 
 // Optimized reading from Blip_Buffer, for use in custom sample output
 
@@ -329,6 +365,8 @@ blip_inline void Blip_Synth<quality,range>::offset_resampled( blip_resampled_tim
 	blip_long* BLIP_RESTRICT buf = blip_buf->buffer_ + (time >> BLIP_BUFFER_ACCURACY);
 	int phase = (int) (time >> (BLIP_BUFFER_ACCURACY - BLIP_PHASE_BITS) & (blip_res - 1));
 
+#if BLIP_BUFFER_FAST
+
 	blip_long left = buf [0] + delta;
 	
 	// Kind of crappy, but doing shift after multiply results in overflow.
@@ -340,6 +378,134 @@ blip_inline void Blip_Synth<quality,range>::offset_resampled( blip_resampled_tim
 	
 	buf [0] = left;
 	buf [1] = right;
+
+#else
+
+	int const fwd = (blip_widest_impulse_ - quality) / 2;
+	int const rev = fwd + quality - 2;
+	int const mid = quality / 2 - 1;
+	
+	imp_t const* BLIP_RESTRICT imp = impulses + blip_res - phase;
+	
+	#define BLIP_FWD_8( q,i ) {\
+		if ( quality > q+4*0 ) BLIP_FWD( i+2*0 )\
+		if ( quality > q+4*1 ) BLIP_FWD( i+2*1 )\
+		if ( quality > q+4*2 ) BLIP_FWD( i+2*2 )\
+		if ( quality > q+4*3 ) BLIP_FWD( i+2*3 )\
+		if ( quality > q+4*4 ) BLIP_FWD( i+2*4 )\
+		if ( quality > q+4*5 ) BLIP_FWD( i+2*5 )\
+		if ( quality > q+4*6 ) BLIP_FWD( i+2*6 )\
+		if ( quality > q+4*7 ) BLIP_FWD( i+2*7 )\
+	}
+	#define BLIP_REV_8( q,r ) {\
+		if ( quality > q+4*7 ) BLIP_REV( r+2*7 )\
+		if ( quality > q+4*6 ) BLIP_REV( r+2*6 )\
+		if ( quality > q+4*5 ) BLIP_REV( r+2*5 )\
+		if ( quality > q+4*4 ) BLIP_REV( r+2*4 )\
+		if ( quality > q+4*3 ) BLIP_REV( r+2*3 )\
+		if ( quality > q+4*2 ) BLIP_REV( r+2*2 )\
+		if ( quality > q+4*1 ) BLIP_REV( r+2*1 )\
+		if ( quality > q+4*0 ) BLIP_REV( r+2*0 )\
+	}
+
+	#if defined (_M_IX86) || defined (_M_IA64) || defined (__i486__) || \
+	    defined (__x86_64__) || defined (__ia64__) || defined (__i386__)
+	
+	// straight forward implementation resulted in better code on GCC for x86
+	
+	#define ADD_IMP( out, in ) \
+		buf [out] += (blip_long) imp [blip_res * (in)] * delta
+	
+	#define BLIP_FWD( i ) {\
+		ADD_IMP( fwd     + (i), (i)     );\
+		ADD_IMP( fwd + 1 + (i), (i) + 1 );\
+	}
+	#define BLIP_REV( r ) {\
+		ADD_IMP( rev     - (r), (r) + 1 );\
+		ADD_IMP( rev + 1 - (r), (r)     );\
+	}
+
+		BLIP_FWD( 0 )
+		BLIP_FWD_8( 8+0*32, 2+0*16 )	// 8-40
+		BLIP_FWD_8( 8+1*32, 2+1*16 )	// 40-72
+		BLIP_FWD_8( 8+2*32, 2+2*16 )	// 72-104
+		BLIP_FWD_8( 8+3*32, 2+3*16 )	// 104-136
+		BLIP_FWD_8( 8+4*32, 2+4*16 )
+		BLIP_FWD_8( 8+5*32, 2+5*16 )
+		BLIP_FWD_8( 8+6*32, 2+6*16 )
+		BLIP_FWD_8( 8+7*32, 2+7*16 )	// 232-264
+		{
+			ADD_IMP( fwd + mid - 1, mid - 1 );
+			ADD_IMP( fwd + mid    , mid     );
+			imp = impulses + phase;
+		}
+		BLIP_REV_8( 8+7*32, 4+7*16 )
+		BLIP_REV_8( 8+6*32, 4+6*16 )
+		BLIP_REV_8( 8+5*32, 4+5*16 )
+		BLIP_REV_8( 8+4*32, 4+4*16 )
+		BLIP_REV_8( 8+3*32, 4+3*16 )
+		BLIP_REV_8( 8+2*32, 4+2*16 )
+		BLIP_REV_8( 8+1*32, 4+1*16 )
+		BLIP_REV_8( 8+0*32, 4+0*16 )
+		BLIP_REV( 2 )
+		
+		ADD_IMP( rev    , 1 );
+		ADD_IMP( rev + 1, 0 );
+		
+	#else
+	
+	// for RISC processors, help compiler by reading ahead of writes
+	
+	#define BLIP_FWD( i ) {\
+		blip_long t0 =                       i0 * delta + buf [fwd     + i];\
+		blip_long t1 = imp [blip_res * (i + 1)] * delta + buf [fwd + 1 + i];\
+		i0 =           imp [blip_res * (i + 2)];\
+		buf [fwd     + i] = t0;\
+		buf [fwd + 1 + i] = t1;\
+	}
+	#define BLIP_REV( r ) {\
+		blip_long t0 =                 i0 * delta + buf [rev     - r];\
+		blip_long t1 = imp [blip_res * r] * delta + buf [rev + 1 - r];\
+		i0 =           imp [blip_res * (r - 1)];\
+		buf [rev     - r] = t0;\
+		buf [rev + 1 - r] = t1;\
+	}
+		
+		blip_long i0 = *imp;
+		BLIP_FWD( 0 )
+		BLIP_FWD_8( 8+0*32, 2+0*16 )	// 8-40
+		BLIP_FWD_8( 8+1*32, 2+1*16 )	// 40-72
+		BLIP_FWD_8( 8+2*32, 2+2*16 )	// 72-104
+		BLIP_FWD_8( 8+3*32, 2+3*16 )	// 104-136
+		BLIP_FWD_8( 8+4*32, 2+4*16 )
+		BLIP_FWD_8( 8+5*32, 2+5*16 )
+		BLIP_FWD_8( 8+6*32, 2+6*16 )
+		BLIP_FWD_8( 8+7*32, 2+7*16 )	// 232-264
+		{
+			blip_long t0 =                   i0 * delta + buf [fwd + mid - 1];
+			blip_long t1 = imp [blip_res * mid] * delta + buf [fwd + mid    ];
+			imp = impulses + phase;
+			i0 = imp [blip_res * mid];
+			buf [fwd + mid - 1] = t0;
+			buf [fwd + mid    ] = t1;
+		}
+		BLIP_REV_8( 8+7*32, 4+7*16 )
+		BLIP_REV_8( 8+6*32, 4+6*16 )
+		BLIP_REV_8( 8+5*32, 4+5*16 )
+		BLIP_REV_8( 8+4*32, 4+4*16 )
+		BLIP_REV_8( 8+3*32, 4+3*16 )
+		BLIP_REV_8( 8+2*32, 4+2*16 )
+		BLIP_REV_8( 8+1*32, 4+1*16 )
+		BLIP_REV_8( 8+0*32, 4+0*16 )
+		BLIP_REV( 2 )
+		
+		blip_long t0 =   i0 * delta + buf [rev    ];
+		blip_long t1 = *imp * delta + buf [rev + 1];
+		buf [rev    ] = t0;
+		buf [rev + 1] = t1;
+	#endif
+
+#endif
 }
 
 #undef BLIP_FWD
@@ -360,7 +526,7 @@ blip_inline void Blip_Synth<quality,range>::update( blip_time_t t, int amp )
 }
 
 blip_inline blip_eq_t::blip_eq_t( double t ) :
-		treble( t ), rolloff_freq( 0 ), sample_rate( 44100 ), cutoff_freq( 0 ) { }
+		treble( t ), rolloff_freq( 0 ), sample_rate( 96000 ), cutoff_freq( 0 ) { }
 blip_inline blip_eq_t::blip_eq_t( double t, long rf, long sr, long cf ) :
 		treble( t ), rolloff_freq( rf ), sample_rate( sr ), cutoff_freq( cf ) { }
 
