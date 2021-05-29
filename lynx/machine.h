@@ -60,10 +60,12 @@ typedef uint16_t UWORD;
 typedef int32_t SLONG;
 typedef uint32_t ULONG;
 
+extern int memory_overclock;
+
 // Read/Write Cycle definitions
-#define CPU_RDWR_CYC	5
-#define DMA_RDWR_CYC	4
-#define SPR_RDWR_CYC	3
+#define CPU_RDWR_CYC	(memory_overclock ? 1 : 5)
+#define DMA_RDWR_CYC	(memory_overclock ? 0 : 4)
+#define SPR_RDWR_CYC	(memory_overclock ? 0 : 3)
 // Ammended to 2 on 28/04/00, 16Mhz = 62.5nS cycle
 //
 //    2 cycles is 125ns - PAGE MODE CYCLE

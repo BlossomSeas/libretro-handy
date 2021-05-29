@@ -1261,6 +1261,7 @@ ULONG CMikie::DisplayRenderLine(void)
             break;
       }
    }
+
    return work_done;
 }
 
