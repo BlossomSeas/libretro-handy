@@ -90,9 +90,9 @@ void CMikie::BlowOut(void)
    for(loop=0;loop<16;loop++) mPalette[loop].Index=loop;
    for(loop=0;loop<4096;loop++) mColourMap[loop]=0;
 
-   mikbuf.set_sample_rate(HANDY_AUDIO_SAMPLE_FREQ, 60);
+   mikbuf.set_sample_rate(HANDY_AUDIO_SAMPLE_FREQ, 25);
    mikbuf.clock_rate(HANDY_SYSTEM_FREQ / 4);
-   mikbuf.bass_freq(60);
+   mikbuf.bass_freq(0);
    miksynth.volume(0.50);
    miksynth.treble_eq(0);
 	

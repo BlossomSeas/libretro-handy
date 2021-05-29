@@ -63,7 +63,7 @@
 
 #define HANDY_SYSTEM_FREQ                       16000000
 #define HANDY_TIMER_FREQ                        20
-#define HANDY_AUDIO_SAMPLE_FREQ                 48000
+#define HANDY_AUDIO_SAMPLE_FREQ                 96000    // 48K Nyquist -- 21K audible, no headroom problems
 #define HANDY_AUDIO_SAMPLE_PERIOD               (HANDY_SYSTEM_FREQ/HANDY_AUDIO_SAMPLE_FREQ)
 #define HANDY_AUDIO_WAVESHAPER_TABLE_LENGTH     0x200000
 
