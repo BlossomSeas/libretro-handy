@@ -1961,7 +1961,12 @@ void CMikie::Poke(ULONG addr,UBYTE data)
             TRACE_MIKIE0("****               CPU SLEEP STARTED                 ****");
             TRACE_MIKIE0("*********************************************************");
             SLONG cycles_used=(SLONG)mSystem.PaintSprites();
-            gCPUWakeupTime=gSystemCycleCount+cycles_used;
+
+            extern int video_overclock;
+            if (video_overclock)
+               gCPUWakeupTime=gSystemCycleCount+1;
+            else
+               gCPUWakeupTime=gSystemCycleCount+cycles_used;
             SetCPUSleep();
             TRACE_MIKIE2("Poke(CPUSLEEP,%02x) wakeup at cycle =%012d",data,gCPUWakeupTime);
          }
@@ -3701,7 +3706,10 @@ inline void CMikie::Update(void)
    // Now all the timer updates are done we can increment the system
    // counter for any work done within the Update() function, gSystemCycleCounter
    // cannot be updated until this point otherwise it screws up the counters.
-   gSystemCycleCount+=mikie_work_done;
+
+   extern int video_overclock;
+   if (!video_overclock)
+      gSystemCycleCount+=mikie_work_done;
 }
 
 inline void CMikie::UpdateSound(void)
