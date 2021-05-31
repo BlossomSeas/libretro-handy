@@ -2,7 +2,7 @@
 #include "libretro_core_options.h"
 
 #include <string.h>
-
+#include <stdio.h>
 #include "handy.h"
 
 static retro_log_printf_t log_cb;
@@ -424,7 +424,9 @@ void retro_run(void)
    gAudioLastUpdateCycle     = gSystemCycleCount;
 
    while (!newFrame)
+   {
       lynx->Update();
+   }
 
    newFrame = false;
 }

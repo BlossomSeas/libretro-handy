@@ -216,10 +216,25 @@ class CSystem : public CSystemBase
          {
             mMikie->Update();
          }
+
          //
          // Step the processor through 1 instruction
          //
-         mCpu->Update();
+         {
+            extern int handy_cpu_overclock;
+            ULONG lastcycle, count;
+
+            mCpu->Update();
+
+            lastcycle = gSystemCycleCount;
+            count = handy_cpu_overclock;
+            while (count--)
+            {
+               mCpu->Update();
+            }
+            gSystemCycleCount = lastcycle;
+         }
+
          //         fprintf(stderr, "end cpu update\n");
 
 #ifdef _LYNXDBG
